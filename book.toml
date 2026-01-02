@@ -1,0 +1,19 @@
+[book]
+title = "What You Never Knew About Symbols"
+authors = ["spwplace"]
+description = "A deep dive into object files, symbol tables, and linking for experienced web developers"
+language = "en"
+src = "src"
+
+[build]
+build-dir = "book"
+
+[output.html]
+default-theme = "coal"
+preferred-dark-theme = "coal"
+git-repository-url = "https://github.com/spwplace/objtab"
+git-repository-icon = "fa-github"
+
+[output.html.fold]
+enable = true
+level = 0

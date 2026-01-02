@@ -1,0 +1,13 @@
+[package]
+name = "mdbook-exec"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+anyhow = "1"
+pulldown-cmark = "0.10"
+pulldown-cmark-to-cmark = "13"
+regex = "1"
+tempfile = "3"
+walkdir = "2"
+clap = { version = "4", features = ["derive"] }

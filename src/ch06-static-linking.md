@@ -172,11 +172,9 @@ This is **selective linking**—you don't pay for what you don't use.
 
 ```bash
 $ ar -t libc.a | wc -l
-1552
-
-# But a simple "hello world" only includes a few:
+0
 $ nm hello | grep ' T ' | wc -l
-42
+0
 ```
 
 The library has 1552 object files, but only ~42 functions end up in your hello world. The rest are discarded.

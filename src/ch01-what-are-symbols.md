@@ -53,7 +53,7 @@ Now `math.o`:
 ```bash
 $ nm math.o
 0000000000000000 T add
-0000000000000014 T multiply
+0000000000000020 T multiply
 ```
 
 Both `add` and `multiply` are defined here. No undefined symbols.

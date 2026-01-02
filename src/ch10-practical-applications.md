@@ -28,8 +28,7 @@ Check what's actually there:
 
 ```bash
 $ ls node_modules/sharp/build/Release/
-# Empty or missing = no compiled module
-
+ls: cannot access 'node_modules/sharp/build/Release/': No such file or directory
 $ file node_modules/sharp/build/Release/sharp-linux-x64.node
 # If it exists: ELF 64-bit LSB shared object...
 ```
@@ -264,7 +263,6 @@ $ nm -D build/Release/addon.node | grep ' T '
 ### Debugging Symbol Issues
 
 ```bash
-# Symbol not found at load time
 $ node -e "require('./build/Release/addon')"
 Error: /path/addon.node: undefined symbol: _ZN4Napi5Value9As...
 
@@ -281,7 +279,6 @@ Napi::Value::As<Napi::Number>()
 Your Node.js app has latency spikes. Is it library loading?
 
 ```bash
-# See what libraries Node loads
 $ LD_DEBUG=files node app.js 2>&1 | head -50
 
 # Count loaded libraries

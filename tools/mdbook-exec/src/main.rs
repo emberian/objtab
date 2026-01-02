@@ -3,15 +3,16 @@
 //! This tool finds code blocks containing shell commands (lines starting with `$`)
 //! and re-executes them, replacing the output with fresh results.
 //!
-//! It maintains a fixture system for sample files needed by the commands.
+//! Uses Docker to run commands in a Linux environment for ELF tooling.
 
-use anyhow::{Context, Result};
+use anyhow::{bail, Context, Result};
 use clap::Parser;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::Command;
-use tempfile::TempDir;
 use walkdir::WalkDir;
+
+const DOCKER_IMAGE: &str = "gcc:14";
 
 #[derive(Parser, Debug)]
 #[command(name = "mdbook-exec")]
@@ -21,10 +22,6 @@ struct Args {
     #[arg(short, long, default_value = "src")]
     src: PathBuf,
 
-    /// Fixtures directory containing sample source files
-    #[arg(short, long, default_value = "fixtures")]
-    fixtures: PathBuf,
-
     /// Dry run - don't write changes, just show what would change
     #[arg(short = 'n', long)]
     dry_run: bool,
@@ -32,34 +29,81 @@ struct Args {
     /// Verbose output
     #[arg(short, long)]
     verbose: bool,
+
+    /// Skip Docker check (for CI environments where Docker is guaranteed)
+    #[arg(long)]
+    skip_docker_check: bool,
 }
 
-/// Represents a single command and its expected output
-#[derive(Debug)]
 struct ShellCommand {
     command: String,
     output_lines: Vec<String>,
 }
 
-/// Fixtures needed for various commands
-fn create_fixtures(dir: &Path) -> Result<()> {
-    // math.c
-    fs::write(
-        dir.join("math.c"),
-        r#"int add(int a, int b) {
+struct DockerRunner {
+    container_id: String,
+    verbose: bool,
+}
+
+impl DockerRunner {
+    fn new(verbose: bool) -> Result<Self> {
+        if verbose {
+            eprintln!("Starting Docker container with image {}...", DOCKER_IMAGE);
+        }
+
+        let output = Command::new("docker")
+            .args([
+                "run",
+                "-d",
+                "--rm",
+                "-w",
+                "/work",
+                DOCKER_IMAGE,
+                "sleep",
+                "3600",
+            ])
+            .output()
+            .context("Failed to start Docker container. Is Docker running?")?;
+
+        if !output.status.success() {
+            let stderr = String::from_utf8_lossy(&output.stderr);
+            bail!("Failed to start Docker container: {}", stderr);
+        }
+
+        let container_id = String::from_utf8_lossy(&output.stdout).trim().to_string();
+
+        if verbose {
+            eprintln!("Container started: {}", &container_id[..12]);
+        }
+
+        let runner = Self {
+            container_id,
+            verbose,
+        };
+
+        runner.setup_fixtures()?;
+
+        Ok(runner)
+    }
+
+    fn setup_fixtures(&self) -> Result<()> {
+        if self.verbose {
+            eprintln!("Setting up fixtures in container...");
+        }
+
+        let fixtures = r#"
+cat > math.c << 'FIXTURE_EOF'
+int add(int a, int b) {
     return a + b;
 }
 
 int multiply(int a, int b) {
     return a * b;
 }
-"#,
-    )?;
+FIXTURE_EOF
 
-    // main.c
-    fs::write(
-        dir.join("main.c"),
-        r#"extern int add(int, int);
+cat > main.c << 'FIXTURE_EOF'
+extern int add(int, int);
 extern int multiply(int, int);
 
 int main() {
@@ -67,100 +111,79 @@ int main() {
     result = multiply(result, 4);
     return result;
 }
-"#,
-    )?;
+FIXTURE_EOF
 
-    // simple.c
-    fs::write(dir.join("simple.c"), "int main() { return 42; }\n")?;
+cat > simple.c << 'FIXTURE_EOF'
+int main() { return 42; }
+FIXTURE_EOF
 
-    // utils.c (for static linking chapter)
-    fs::write(
-        dir.join("utils.c"),
-        r#"void used_function(void) { }
-void unused_function(void) { }
-"#,
-    )?;
+gcc -c math.c -o math.o
+gcc -c main.c -o main.o
+gcc main.o math.o -o program
+gcc -c simple.c -o simple.o
+gcc simple.c -o simple
+"#;
 
-    // plugin.c (for runtime linking chapter)
-    fs::write(
-        dir.join("plugin.c"),
-        r#"#include <stdio.h>
-
-void plugin_init(void) {
-    printf("Plugin initialized!\n");
-}
-"#,
-    )?;
-
-    // plugin_user.c
-    fs::write(
-        dir.join("plugin_user.c"),
-        r#"#include <stdio.h>
-#include <dlfcn.h>
-
-int main(int argc, char **argv) {
-    if (argc < 2) {
-        fprintf(stderr, "Usage: %s <plugin.so>\n", argv[0]);
-        return 1;
-    }
-    
-    void *handle = dlopen(argv[1], RTLD_NOW);
-    if (!handle) {
-        fprintf(stderr, "Error: %s\n", dlerror());
-        return 1;
-    }
-    
-    typedef void (*plugin_init_func)(void);
-    plugin_init_func init = dlsym(handle, "plugin_init");
-    if (!init) {
-        fprintf(stderr, "Error: %s\n", dlerror());
-        dlclose(handle);
-        return 1;
-    }
-    
-    init();
-    dlclose(handle);
-    return 0;
-}
-"#,
-    )?;
-
-    Ok(())
-}
-
-/// Compile fixture files to object files
-fn compile_fixtures(dir: &Path, verbose: bool) -> Result<()> {
-    let compile_commands = [
-        ("gcc", &["-c", "math.c", "-o", "math.o"][..]),
-        ("gcc", &["-c", "main.c", "-o", "main.o"][..]),
-        ("gcc", &["main.o", "math.o", "-o", "program"][..]),
-        ("gcc", &["-c", "simple.c", "-o", "simple.o"][..]),
-        ("gcc", &["simple.c", "-o", "simple"][..]),
-    ];
-
-    for (cmd, args) in compile_commands {
-        if verbose {
-            eprintln!("  Running: {} {}", cmd, args.join(" "));
-        }
-        let output = Command::new(cmd)
-            .args(args)
-            .current_dir(dir)
+        let output = Command::new("docker")
+            .args(["exec", &self.container_id, "sh", "-c", fixtures])
             .output()
-            .with_context(|| format!("Failed to run {} {:?}", cmd, args))?;
+            .context("Failed to set up fixtures")?;
 
-        if !output.status.success() {
+        if !output.status.success() && self.verbose {
             let stderr = String::from_utf8_lossy(&output.stderr);
-            if verbose {
-                eprintln!("  Warning: {} {:?} failed: {}", cmd, args, stderr);
-            }
-            // Don't fail - some commands might not be needed
+            eprintln!("Warning: Some fixtures may have failed: {}", stderr);
         }
+
+        Ok(())
+    }
+
+    fn execute(&self, cmd: &str) -> Result<String> {
+        if self.verbose {
+            eprintln!("  Executing in container: {}", cmd);
+        }
+
+        let output = Command::new("docker")
+            .args(["exec", &self.container_id, "sh", "-c", cmd])
+            .output()
+            .with_context(|| format!("Failed to execute: {}", cmd))?;
+
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        let stderr = String::from_utf8_lossy(&output.stderr);
+
+        let result = if stdout.is_empty() && !stderr.is_empty() {
+            stderr.to_string()
+        } else {
+            stdout.to_string()
+        };
+
+        Ok(result.trim_end().to_string())
+    }
+}
+
+impl Drop for DockerRunner {
+    fn drop(&mut self) {
+        if self.verbose {
+            eprintln!("Stopping container {}...", &self.container_id[..12]);
+        }
+        let _ = Command::new("docker")
+            .args(["kill", &self.container_id])
+            .output();
+    }
+}
+
+fn check_docker() -> Result<()> {
+    let output = Command::new("docker")
+        .args(["info"])
+        .output()
+        .context("Docker not found. Please install Docker.")?;
+
+    if !output.status.success() {
+        bail!("Docker is not running. Please start Docker.");
     }
 
     Ok(())
 }
 
-/// Parse a code block and extract shell commands with their outputs
 fn parse_shell_commands(content: &str) -> Vec<ShellCommand> {
     let mut commands = Vec::new();
     let mut current_cmd: Option<String> = None;
@@ -168,7 +191,6 @@ fn parse_shell_commands(content: &str) -> Vec<ShellCommand> {
 
     for line in content.lines() {
         if line.starts_with("$ ") {
-            // Save previous command if exists
             if let Some(cmd) = current_cmd.take() {
                 commands.push(ShellCommand {
                     command: cmd,
@@ -177,14 +199,12 @@ fn parse_shell_commands(content: &str) -> Vec<ShellCommand> {
             }
             current_cmd = Some(line[2..].to_string());
         } else if line.starts_with("# ") && current_cmd.is_none() {
-            // Comment line before any command, skip
+            continue;
         } else if current_cmd.is_some() {
-            // This is output from the current command
             current_output.push(line.to_string());
         }
     }
 
-    // Don't forget the last command
     if let Some(cmd) = current_cmd {
         commands.push(ShellCommand {
             command: cmd,
@@ -195,93 +215,40 @@ fn parse_shell_commands(content: &str) -> Vec<ShellCommand> {
     commands
 }
 
-/// Execute a command and return its output
-fn execute_command(cmd: &str, workdir: &Path, verbose: bool) -> Result<String> {
-    if verbose {
-        eprintln!("  Executing: {}", cmd);
-    }
-
-    // Handle special cases
-    let adjusted_cmd = adjust_command(cmd);
-
-    let output = Command::new("sh")
-        .arg("-c")
-        .arg(&adjusted_cmd)
-        .current_dir(workdir)
-        .output()
-        .with_context(|| format!("Failed to execute: {}", cmd))?;
-
-    let stdout = String::from_utf8_lossy(&output.stdout);
-    let stderr = String::from_utf8_lossy(&output.stderr);
-
-    // Combine stdout and stderr for commands that output to stderr
-    let result = if stdout.is_empty() && !stderr.is_empty() {
-        stderr.to_string()
-    } else {
-        stdout.to_string()
-    };
-
-    Ok(result.trim_end().to_string())
-}
-
-/// Adjust commands for our environment
-fn adjust_command(cmd: &str) -> String {
-    let cmd = cmd.to_string();
-
-    // Map /bin/ls to actual location (varies by system)
-    let cmd = cmd.replace("/bin/ls", "$(which ls)");
-
-    // Map /usr/bin/python3 to actual location
-    let cmd = cmd.replace(
-        "/usr/bin/python3",
-        "$(which python3 2>/dev/null || echo /usr/bin/python3)",
-    );
-
-    cmd
-}
-
-/// Check if a code block contains shell commands
 fn is_shell_block(lang: &str, content: &str) -> bool {
-    // Must be a bash block
-    if lang != "bash" {
-        return false;
-    }
-
-    // Must contain at least one $ command
-    content.lines().any(|line| line.starts_with("$ "))
+    lang == "bash" && content.lines().any(|line| line.starts_with("$ "))
 }
 
-/// Commands we should skip (they reference files we can't easily create)
 fn should_skip_command(cmd: &str) -> bool {
-    // Skip commands that reference system binaries we can't control output of
-    let skip_patterns = [
-        "ldd",                   // System-specific output
-        "/proc/",                // Linux-specific
-        "LD_DEBUG",              // Runtime-specific
-        "node ",                 // Requires Node.js
-        "npm ",                  // Requires npm
-        "cargo ",                // Requires Rust project context
-        "wasm",                  // Requires WASM toolchain
-        "emcc",                  // Requires Emscripten
-        "clang --target=wasm32", // Requires WASM target
-        "c++filt",               // May not be available
-        "checksec",              // May not be available
-        "ltrace",                // May not be available
-        "twiggy",                // May not be available
-        "bloaty",                // May not be available
-        "/lib",                  // System paths
-        "LD_PRELOAD",            // Runtime-specific
-        "LD_LIBRARY_PATH",       // Runtime-specific
-        "LD_BIND_NOW",           // Runtime-specific
-        "file ",                 // Output varies by system
-        "echo $?",               // Depends on previous command
+    const SKIP_PATTERNS: &[&str] = &[
+        "ldd",
+        "/proc/",
+        "LD_DEBUG",
+        "node ",
+        "npm ",
+        "cargo ",
+        "wasm",
+        "emcc",
+        "clang --target=wasm32",
+        "c++filt",
+        "checksec",
+        "ltrace",
+        "twiggy",
+        "bloaty",
+        "/lib",
+        "LD_PRELOAD",
+        "LD_LIBRARY_PATH",
+        "LD_BIND_NOW",
+        "file ",
+        "echo $?",
+        "node-gyp",
+        "rustup",
     ];
 
-    skip_patterns.iter().any(|p| cmd.contains(p))
+    SKIP_PATTERNS.iter().any(|p| cmd.contains(p))
 }
 
-/// Process a single markdown file
-fn process_file(path: &Path, workdir: &Path, verbose: bool, dry_run: bool) -> Result<bool> {
+fn process_file(path: &Path, runner: &DockerRunner, verbose: bool, dry_run: bool) -> Result<bool> {
     let content = fs::read_to_string(path)?;
     let mut new_content = String::new();
     let mut modified = false;
@@ -297,25 +264,21 @@ fn process_file(path: &Path, workdir: &Path, verbose: bool, dry_run: bool) -> Re
             code_block_start = line.to_string();
             code_block_content.clear();
         } else if line == "```" && in_code_block {
-            // End of code block
             if is_shell_block(&code_block_lang, &code_block_content) {
-                // Process this block
                 let commands = parse_shell_commands(&code_block_content);
                 let mut new_block = String::new();
 
                 for cmd in &commands {
                     if should_skip_command(&cmd.command) {
-                        // Keep original output
                         new_block.push_str(&format!("$ {}\n", cmd.command));
                         for out_line in &cmd.output_lines {
                             new_block.push_str(out_line);
                             new_block.push('\n');
                         }
                     } else {
-                        // Execute and replace
                         new_block.push_str(&format!("$ {}\n", cmd.command));
 
-                        match execute_command(&cmd.command, workdir, verbose) {
+                        match runner.execute(&cmd.command) {
                             Ok(output) => {
                                 if !output.is_empty() {
                                     new_block.push_str(&output);
@@ -326,7 +289,6 @@ fn process_file(path: &Path, workdir: &Path, verbose: bool, dry_run: bool) -> Re
                                 if verbose {
                                     eprintln!("  Warning: Command failed: {} - {}", cmd.command, e);
                                 }
-                                // Keep original output on failure
                                 for out_line in &cmd.output_lines {
                                     new_block.push_str(out_line);
                                     new_block.push('\n');
@@ -336,7 +298,6 @@ fn process_file(path: &Path, workdir: &Path, verbose: bool, dry_run: bool) -> Re
                     }
                 }
 
-                // Check if content changed
                 let new_block = new_block.trim_end();
                 let old_block = code_block_content.trim_end();
                 if new_block != old_block {
@@ -351,7 +312,6 @@ fn process_file(path: &Path, workdir: &Path, verbose: bool, dry_run: bool) -> Re
                 new_content.push_str(new_block);
                 new_content.push('\n');
             } else {
-                // Not a shell block, keep as-is
                 new_content.push_str(&code_block_start);
                 new_content.push('\n');
                 new_content.push_str(&code_block_content);
@@ -367,7 +327,6 @@ fn process_file(path: &Path, workdir: &Path, verbose: bool, dry_run: bool) -> Re
         }
     }
 
-    // Remove trailing newline if original didn't have one
     if !content.ends_with('\n') {
         new_content.pop();
     }
@@ -382,26 +341,19 @@ fn process_file(path: &Path, workdir: &Path, verbose: bool, dry_run: bool) -> Re
 fn main() -> Result<()> {
     let args = Args::parse();
 
-    // Create temp directory for fixtures
-    let temp_dir = TempDir::new()?;
-    let workdir = temp_dir.path();
-
-    if args.verbose {
-        eprintln!("Creating fixtures in {:?}", workdir);
+    if !args.skip_docker_check {
+        check_docker()?;
     }
 
-    // Set up fixtures
-    create_fixtures(workdir)?;
-    compile_fixtures(workdir, args.verbose)?;
+    let runner = DockerRunner::new(args.verbose)?;
 
-    // Process all markdown files
     let mut files_modified = 0;
     let mut files_processed = 0;
 
     for entry in WalkDir::new(&args.src)
         .into_iter()
         .filter_map(|e| e.ok())
-        .filter(|e| e.path().extension().map_or(false, |ext| ext == "md"))
+        .filter(|e| e.path().extension().is_some_and(|ext| ext == "md"))
     {
         let path = entry.path();
         files_processed += 1;
@@ -410,7 +362,7 @@ fn main() -> Result<()> {
             eprintln!("Processing {:?}", path);
         }
 
-        match process_file(path, workdir, args.verbose, args.dry_run) {
+        match process_file(path, &runner, args.verbose, args.dry_run) {
             Ok(modified) => {
                 if modified {
                     files_modified += 1;

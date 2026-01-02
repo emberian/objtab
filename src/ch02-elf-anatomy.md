@@ -17,25 +17,25 @@ Every ELF file starts with a header. Let's look at one:
 ```bash
 $ readelf -h /bin/ls
 ELF Header:
-  Magic:   7f 45 4c 46 02 01 01 00 00 00 00 00 00 00 00 00
+  Magic:   7f 45 4c 46 02 01 01 00 00 00 00 00 00 00 00 00 
   Class:                             ELF64
   Data:                              2's complement, little endian
   Version:                           1 (current)
   OS/ABI:                            UNIX - System V
   ABI Version:                       0
-  Type:                              DYN (Position-Independent Executable)
-  Machine:                           Advanced Micro Devices X86-64
+  Type:                              DYN (Position-Independent Executable file)
+  Machine:                           AArch64
   Version:                           0x1
-  Entry point address:               0x6ab0
+  Entry point address:               0x65c0
   Start of program headers:          64 (bytes into file)
-  Start of section headers:          140224 (bytes into file)
+  Start of section headers:          197720 (bytes into file)
   Flags:                             0x0
   Size of this header:               64 (bytes)
   Size of program headers:           56 (bytes)
-  Number of program headers:         13
+  Number of program headers:         12
   Size of section headers:           64 (bytes)
-  Number of section headers:         30
-  Section header string table index: 29
+  Number of section headers:         29
+  Section header string table index: 28
 ```
 
 Let's break this down:
@@ -114,18 +114,30 @@ Your compiled functions live here. This section is:
 ```bash
 $ objdump -d math.o
 
-math.o:     file format elf64-x86-64
+math.o:     file format elf64-littleaarch64
+
 
 Disassembly of section .text:
 
 0000000000000000 <add>:
-   0:   8d 04 37                lea    (%rdi,%rsi,1),%eax
-   3:   c3                      ret
+   0:	d10043ff 	sub	sp, sp, #0x10
+   4:	b9000fe0 	str	w0, [sp, #12]
+   8:	b9000be1 	str	w1, [sp, #8]
+   c:	b9400fe1 	ldr	w1, [sp, #12]
+  10:	b9400be0 	ldr	w0, [sp, #8]
+  14:	0b000020 	add	w0, w1, w0
+  18:	910043ff 	add	sp, sp, #0x10
+  1c:	d65f03c0 	ret
 
-0000000000000004 <multiply>:
-   4:   89 f8                   mov    %edi,%eax
-   6:   0f af c6                imul   %esi,%eax
-   9:   c3                      ret
+0000000000000020 <multiply>:
+  20:	d10043ff 	sub	sp, sp, #0x10
+  24:	b9000fe0 	str	w0, [sp, #12]
+  28:	b9000be1 	str	w1, [sp, #8]
+  2c:	b9400fe1 	ldr	w1, [sp, #12]
+  30:	b9400be0 	ldr	w0, [sp, #8]
+  34:	1b007c20 	mul	w0, w1, w0
+  38:	910043ff 	add	sp, sp, #0x10
+  3c:	d65f03c0 	ret
 ```
 
 Notice the addresses start at 0. These are relative offsets—final addresses are determined during linking.
@@ -170,13 +182,20 @@ The symbol table! We covered this in Chapter 1. `.symtab` contains the structure
 ```bash
 $ readelf -s math.o
 
-Symbol table '.symtab' contains 5 entries:
+Symbol table '.symtab' contains 12 entries:
    Num:    Value          Size Type    Bind   Vis      Ndx Name
-     0: 0000000000000000     0 NOTYPE  LOCAL  DEFAULT  UND
+     0: 0000000000000000     0 NOTYPE  LOCAL  DEFAULT  UND 
      1: 0000000000000000     0 FILE    LOCAL  DEFAULT  ABS math.c
      2: 0000000000000000     0 SECTION LOCAL  DEFAULT    1 .text
-     3: 0000000000000000     4 FUNC    GLOBAL DEFAULT    1 add
-     4: 0000000000000004     6 FUNC    GLOBAL DEFAULT    1 multiply
+     3: 0000000000000000     0 SECTION LOCAL  DEFAULT    2 .data
+     4: 0000000000000000     0 SECTION LOCAL  DEFAULT    3 .bss
+     5: 0000000000000000     0 NOTYPE  LOCAL  DEFAULT    1 $x
+     6: 0000000000000000     0 SECTION LOCAL  DEFAULT    5 .note.GNU-stack
+     7: 0000000000000014     0 NOTYPE  LOCAL  DEFAULT    6 $d
+     8: 0000000000000000     0 SECTION LOCAL  DEFAULT    6 .eh_frame
+     9: 0000000000000000     0 SECTION LOCAL  DEFAULT    4 .comment
+    10: 0000000000000000    32 FUNC    GLOBAL DEFAULT    1 add
+    11: 0000000000000020    32 FUNC    GLOBAL DEFAULT    1 multiply
 ```
 
 ### `.rel.text` and `.rela.text` — Relocations
@@ -186,10 +205,14 @@ When code references something that isn't known yet (a function in another file,
 ```bash
 $ readelf -r main.o
 
-Relocation section '.rela.text' at offset 0x1d0 contains 2 entries:
+Relocation section '.rela.text' at offset 0x218 contains 2 entries:
   Offset          Info           Type           Sym. Value    Sym. Name + Addend
-000000000011  000500000004 R_X86_64_PLT32    0000000000000000 add - 4
-000000000020  000600000004 R_X86_64_PLT32    0000000000000000 multiply - 4
+000000000010  000b0000011b R_AARCH64_CALL26  0000000000000000 add + 0
+000000000020  000c0000011b R_AARCH64_CALL26  0000000000000000 multiply + 0
+
+Relocation section '.rela.eh_frame' at offset 0x248 contains 1 entry:
+  Offset          Info           Type           Sym. Value    Sym. Name + Addend
+00000000001c  000200000105 R_AARCH64_PREL32  0000000000000000 .text + 0
 ```
 
 The `main.o` file has two relocations: calls to `add` and `multiply` that need to be resolved.
@@ -210,11 +233,38 @@ Each section has flags describing its properties:
 
 ```bash
 $ readelf -S math.o
+There are 11 section headers, starting at offset 0x2a8:
+
 Section Headers:
-  [Nr] Name    Type    Address          Off    Size   ES Flg Lk Inf Al
-  [ 1] .text   PROGBITS 0000000000000000 000040 00000a 00  AX  0   0  1
-  [ 2] .data   PROGBITS 0000000000000000 00004a 000000 00  WA  0   0  1
-  [ 3] .bss    NOBITS   0000000000000000 00004a 000000 00  WA  0   0  1
+  [Nr] Name              Type             Address           Offset
+       Size              EntSize          Flags  Link  Info  Align
+  [ 0]                   NULL             0000000000000000  00000000
+       0000000000000000  0000000000000000           0     0     0
+  [ 1] .text             PROGBITS         0000000000000000  00000040
+       0000000000000040  0000000000000000  AX       0     0     4
+  [ 2] .data             PROGBITS         0000000000000000  00000080
+       0000000000000000  0000000000000000  WA       0     0     1
+  [ 3] .bss              NOBITS           0000000000000000  00000080
+       0000000000000000  0000000000000000  WA       0     0     1
+  [ 4] .comment          PROGBITS         0000000000000000  00000080
+       0000000000000013  0000000000000001  MS       0     0     1
+  [ 5] .note.GNU-stack   PROGBITS         0000000000000000  00000093
+       0000000000000000  0000000000000000           0     0     1
+  [ 6] .eh_frame         PROGBITS         0000000000000000  00000098
+       0000000000000048  0000000000000000   A       0     0     8
+  [ 7] .rela.eh_frame    RELA             0000000000000000  00000220
+       0000000000000030  0000000000000018   I       8     6     8
+  [ 8] .symtab           SYMTAB           0000000000000000  000000e0
+       0000000000000120  0000000000000018           9    10     8
+  [ 9] .strtab           STRTAB           0000000000000000  00000200
+       000000000000001b  0000000000000000           0     0     1
+  [10] .shstrtab         STRTAB           0000000000000000  00000250
+       0000000000000054  0000000000000000           0     0     1
+Key to Flags:
+  W (write), A (alloc), X (execute), M (merge), S (strings), I (info),
+  L (link order), O (extra OS processing required), G (group), T (TLS),
+  C (compressed), x (unknown), o (OS specific), E (exclude),
+  D (mbind), p (processor specific)
 ```
 
 Flags:
@@ -232,19 +282,54 @@ For executables and shared libraries, program headers describe memory mapping:
 
 ```bash
 $ readelf -l /bin/ls
+
+Elf file type is DYN (Position-Independent Executable file)
+Entry point 0x65c0
+There are 12 program headers, starting at offset 64
+
 Program Headers:
-  Type           Offset   VirtAddr           PhysAddr           FileSiz  MemSiz   Flg Align
-  PHDR           0x000040 0x0000000000000040 0x0000000000000040 0x0002d8 0x0002d8 R   0x8
-  INTERP         0x000318 0x0000000000000318 0x0000000000000318 0x00001c 0x00001c R   0x1
-  LOAD           0x000000 0x0000000000000000 0x0000000000000000 0x003510 0x003510 R   0x1000
-  LOAD           0x004000 0x0000000000004000 0x0000000000004000 0x013471 0x013471 R E 0x1000
-  LOAD           0x018000 0x0000000000018000 0x0000000000018000 0x004fe8 0x004fe8 R   0x1000
-  LOAD           0x01d900 0x000000000001e900 0x000000000001e900 0x001288 0x002548 RW  0x1000
-  DYNAMIC        0x01e3f8 0x000000000001f3f8 0x000000000001f3f8 0x000200 0x000200 RW  0x8
-  NOTE           0x000338 0x0000000000000338 0x0000000000000338 0x000030 0x000030 R   0x8
-  GNU_EH_FRAME   0x01b28c 0x000000000001b28c 0x000000000001b28c 0x0003ec 0x0003ec R   0x4
-  GNU_STACK      0x000000 0x0000000000000000 0x0000000000000000 0x000000 0x000000 RW  0x10
-  GNU_RELRO      0x01d900 0x000000000001e900 0x000000000001e900 0x001700 0x001700 R   0x1
+  Type           Offset             VirtAddr           PhysAddr
+                 FileSiz            MemSiz              Flags  Align
+  PHDR           0x0000000000000040 0x0000000000000040 0x0000000000000040
+                 0x00000000000002a0 0x00000000000002a0  R      0x8
+  INTERP         0x0000000000000324 0x0000000000000324 0x0000000000000324
+                 0x000000000000001b 0x000000000000001b  R      0x1
+      [Requesting program interpreter: /lib/ld-linux-aarch64.so.1]
+  LOAD           0x0000000000000000 0x0000000000000000 0x0000000000000000
+                 0x0000000000024f58 0x0000000000024f58  R E    0x10000
+  LOAD           0x000000000002ef20 0x000000000003ef20 0x000000000003ef20
+                 0x0000000000001390 0x0000000000002698  RW     0x10000
+  DYNAMIC        0x000000000002f908 0x000000000003f908 0x000000000003f908
+                 0x0000000000000230 0x0000000000000230  RW     0x8
+  NOTE           0x00000000000002e0 0x00000000000002e0 0x00000000000002e0
+                 0x0000000000000020 0x0000000000000020  R      0x8
+  NOTE           0x0000000000000300 0x0000000000000300 0x0000000000000300
+                 0x0000000000000024 0x0000000000000024  R      0x4
+  NOTE           0x0000000000024f38 0x0000000000024f38 0x0000000000024f38
+                 0x0000000000000020 0x0000000000000020  R      0x4
+  GNU_PROPERTY   0x00000000000002e0 0x00000000000002e0 0x00000000000002e0
+                 0x0000000000000020 0x0000000000000020  R      0x8
+  GNU_EH_FRAME   0x0000000000020c8c 0x0000000000020c8c 0x0000000000020c8c
+                 0x00000000000009fc 0x00000000000009fc  R      0x4
+  GNU_STACK      0x0000000000000000 0x0000000000000000 0x0000000000000000
+                 0x0000000000000000 0x0000000000000000  RW     0x10
+  GNU_RELRO      0x000000000002ef20 0x000000000003ef20 0x000000000003ef20
+                 0x00000000000010e0 0x00000000000010e0  R      0x1
+
+ Section to Segment mapping:
+  Segment Sections...
+   00     
+   01     .interp 
+   02     .note.gnu.property .note.gnu.build-id .interp .gnu.hash .dynsym .dynstr .gnu.version .gnu.version_r .rela.dyn .rela.plt .init .plt .text .fini .rodata .eh_frame_hdr .eh_frame .note.ABI-tag 
+   03     .init_array .fini_array .data.rel.ro .dynamic .got .data .bss 
+   04     .dynamic 
+   05     .note.gnu.property 
+   06     .note.gnu.build-id 
+   07     .note.ABI-tag 
+   08     .note.gnu.property 
+   09     .eh_frame_hdr 
+   10     
+   11     .init_array .fini_array .data.rel.ro .dynamic .got
 ```
 
 Key segment types:
@@ -263,16 +348,54 @@ The linker groups sections into segments:
 
 ```bash
 $ readelf -l /bin/ls
-...
+
+Elf file type is DYN (Position-Independent Executable file)
+Entry point 0x65c0
+There are 12 program headers, starting at offset 64
+
+Program Headers:
+  Type           Offset             VirtAddr           PhysAddr
+                 FileSiz            MemSiz              Flags  Align
+  PHDR           0x0000000000000040 0x0000000000000040 0x0000000000000040
+                 0x00000000000002a0 0x00000000000002a0  R      0x8
+  INTERP         0x0000000000000324 0x0000000000000324 0x0000000000000324
+                 0x000000000000001b 0x000000000000001b  R      0x1
+      [Requesting program interpreter: /lib/ld-linux-aarch64.so.1]
+  LOAD           0x0000000000000000 0x0000000000000000 0x0000000000000000
+                 0x0000000000024f58 0x0000000000024f58  R E    0x10000
+  LOAD           0x000000000002ef20 0x000000000003ef20 0x000000000003ef20
+                 0x0000000000001390 0x0000000000002698  RW     0x10000
+  DYNAMIC        0x000000000002f908 0x000000000003f908 0x000000000003f908
+                 0x0000000000000230 0x0000000000000230  RW     0x8
+  NOTE           0x00000000000002e0 0x00000000000002e0 0x00000000000002e0
+                 0x0000000000000020 0x0000000000000020  R      0x8
+  NOTE           0x0000000000000300 0x0000000000000300 0x0000000000000300
+                 0x0000000000000024 0x0000000000000024  R      0x4
+  NOTE           0x0000000000024f38 0x0000000000024f38 0x0000000000024f38
+                 0x0000000000000020 0x0000000000000020  R      0x4
+  GNU_PROPERTY   0x00000000000002e0 0x00000000000002e0 0x00000000000002e0
+                 0x0000000000000020 0x0000000000000020  R      0x8
+  GNU_EH_FRAME   0x0000000000020c8c 0x0000000000020c8c 0x0000000000020c8c
+                 0x00000000000009fc 0x00000000000009fc  R      0x4
+  GNU_STACK      0x0000000000000000 0x0000000000000000 0x0000000000000000
+                 0x0000000000000000 0x0000000000000000  RW     0x10
+  GNU_RELRO      0x000000000002ef20 0x000000000003ef20 0x000000000003ef20
+                 0x00000000000010e0 0x00000000000010e0  R      0x1
+
  Section to Segment mapping:
   Segment Sections...
-   00
-   01     .interp
-   02     .interp .note.gnu.property .note.ABI-tag .gnu.hash .dynsym .dynstr .gnu.version .gnu.version_r .rela.dyn .rela.plt
-   03     .init .plt .text .fini
-   04     .rodata .eh_frame_hdr .eh_frame
-   05     .init_array .fini_array .data.rel.ro .dynamic .got .data .bss
-   ...
+   00     
+   01     .interp 
+   02     .note.gnu.property .note.gnu.build-id .interp .gnu.hash .dynsym .dynstr .gnu.version .gnu.version_r .rela.dyn .rela.plt .init .plt .text .fini .rodata .eh_frame_hdr .eh_frame .note.ABI-tag 
+   03     .init_array .fini_array .data.rel.ro .dynamic .got .data .bss 
+   04     .dynamic 
+   05     .note.gnu.property 
+   06     .note.gnu.build-id 
+   07     .note.ABI-tag 
+   08     .note.gnu.property 
+   09     .eh_frame_hdr 
+   10     
+   11     .init_array .fini_array .data.rel.ro .dynamic .got
 ```
 
 Multiple sections become one segment. All the code sections (`.init`, `.plt`, `.text`, `.fini`) map to segment 03 with `R E` permissions.

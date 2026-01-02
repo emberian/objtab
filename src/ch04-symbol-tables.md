@@ -128,13 +128,20 @@ Let's decode a real example:
 ```bash
 $ readelf -s math.o
 
-Symbol table '.symtab' contains 5 entries:
+Symbol table '.symtab' contains 12 entries:
    Num:    Value          Size Type    Bind   Vis      Ndx Name
-     0: 0000000000000000     0 NOTYPE  LOCAL  DEFAULT  UND
+     0: 0000000000000000     0 NOTYPE  LOCAL  DEFAULT  UND 
      1: 0000000000000000     0 FILE    LOCAL  DEFAULT  ABS math.c
      2: 0000000000000000     0 SECTION LOCAL  DEFAULT    1 .text
-     3: 0000000000000000     4 FUNC    GLOBAL DEFAULT    1 add
-     4: 0000000000000004     6 FUNC    GLOBAL DEFAULT    1 multiply
+     3: 0000000000000000     0 SECTION LOCAL  DEFAULT    2 .data
+     4: 0000000000000000     0 SECTION LOCAL  DEFAULT    3 .bss
+     5: 0000000000000000     0 NOTYPE  LOCAL  DEFAULT    1 $x
+     6: 0000000000000000     0 SECTION LOCAL  DEFAULT    5 .note.GNU-stack
+     7: 0000000000000014     0 NOTYPE  LOCAL  DEFAULT    6 $d
+     8: 0000000000000000     0 SECTION LOCAL  DEFAULT    6 .eh_frame
+     9: 0000000000000000     0 SECTION LOCAL  DEFAULT    4 .comment
+    10: 0000000000000000    32 FUNC    GLOBAL DEFAULT    1 add
+    11: 0000000000000020    32 FUNC    GLOBAL DEFAULT    1 multiply
 ```
 
 Decoding each:
@@ -163,13 +170,10 @@ ELF executables can have **two** symbol tables:
 `.dynsym` is minimal—only symbols needed for dynamic linking. It survives `strip` because the dynamic linker needs it at runtime.
 
 ```bash
-# Full symbols
 $ nm /usr/bin/python3 | wc -l
-nm: /usr/bin/python3: no symbols
-
-# Dynamic symbols survive stripping
+0
 $ nm -D /usr/bin/python3 | wc -l
-3847
+2255
 ```
 
 ## Symbol Hashing for Fast Lookup
@@ -249,9 +253,15 @@ A symbol with global binding should be defined exactly once (across all input fi
 
 ```bash
 $ gcc -c file1.c -o file1.o  # defines 'foo'
+cc1: fatal error: file1.c: No such file or directory
+compilation terminated.
 $ gcc -c file2.c -o file2.o  # also defines 'foo'
+cc1: fatal error: file2.c: No such file or directory
+compilation terminated.
 $ gcc file1.o file2.o -o out
-multiple definition of 'foo'
+/usr/bin/ld: cannot find file1.o: No such file or directory
+/usr/bin/ld: cannot find file2.o: No such file or directory
+collect2: error: ld returned 1 exit status
 ```
 
 ### Rule 2: Weak vs Strong

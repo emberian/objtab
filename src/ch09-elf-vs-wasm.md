@@ -10,7 +10,7 @@ Neither is "better." They're optimized for different threat models. ELF assumes 
 
 Let's see exactly how these philosophies manifest in their designs.
 
-ELF was designed in 1995 for Unix systems. WebAssembly was designed in 2015 for web browsers. Different eras, different constraints, different designs.
+ELF was designed around 1989 for Unix System V Release 4. WebAssembly was designed in 2015 for web browsers. Different eras, different constraints, different designs.
 
 Yet both solve the same fundamental problem: representing compiled code and the metadata needed to link and run it.
 
@@ -301,7 +301,7 @@ But it's not the same. There's no OS-level library sharing.
 
 | Aspect | ELF | WASM |
 |--------|-----|------|
-| **Year introduced** | 1995 | 2015 |
+| **Year introduced** | ~1989 (SVR4) | 2015 |
 | **Primary platform** | Unix (Linux, BSD, Solaris) | Web browsers, edge, embedded |
 | **Security model** | OS-enforced | Format-enforced (sandbox) |
 | **Memory model** | Flat address space | Linear memory sandbox |

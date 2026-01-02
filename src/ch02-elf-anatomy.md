@@ -1,8 +1,8 @@
 # Object File Anatomy: ELF Deep Dive
 
-In 1995, the Unix world was fragmented. Different systems used different binary formats: a.out on older systems, COFF on System V, Mach-O on NeXT. Porting software meant wrestling with format differences. Debugging tools had to understand multiple formats. It was a mess.
+By the early 1990s, the Unix world was fragmented. Different systems used different binary formats: a.out on older systems and early Linux, COFF on System V Release 3, Mach-O on NeXT. Porting software meant wrestling with format differences. Debugging tools had to understand multiple formats. It was a mess.
 
-ELF—the Executable and Linkable Format—was designed to end that fragmentation. It succeeded beyond anyone's expectations. Today, ELF runs on Linux, FreeBSD, OpenBSD, NetBSD, Solaris, PlayStation, Android, and countless embedded systems. When you run a program on a Linux server, you're running an ELF file. When your phone launches an app, ELF is involved. It's one of the most successful binary formats ever designed.
+ELF—the Executable and Linkable Format—was designed to end that fragmentation. Developed at Unix System Laboratories around 1989 for System V Release 4, it spread to Solaris, then to the BSDs, and finally to Linux in 1995. It succeeded beyond anyone's expectations. Today, ELF runs on Linux, FreeBSD, OpenBSD, NetBSD, Solaris, PlayStation, Android, and countless embedded systems. When you run a program on a Linux server, you're running an ELF file. When your phone launches an app, ELF is involved. It's one of the most successful binary formats ever designed.
 
 Understanding ELF isn't just historical curiosity. It's practical knowledge. When `npm install` fails with a mysterious native module error, ELF knowledge helps you debug it. When you're optimizing a Docker image, knowing what's in those binaries helps you shrink them. When you're investigating a security vulnerability, ELF structure tells you what's exploitable.
 

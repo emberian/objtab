@@ -180,12 +180,12 @@ This is **selective linking**—you don't pay for what you don't use.
 
 ```bash
 $ ar -t libc.a | wc -l
-0
+2021
 $ nm hello | grep ' T ' | wc -l
-0
+5
 ```
 
-The library has 1552 object files, but only ~42 functions end up in your hello world. The rest are discarded.
+The library has ~2000 object files, but only a handful of functions end up in your hello world. The rest are discarded.
 
 ### Link Order Matters
 

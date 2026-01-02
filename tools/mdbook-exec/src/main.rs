@@ -117,11 +117,37 @@ cat > simple.c << 'FIXTURE_EOF'
 int main() { return 42; }
 FIXTURE_EOF
 
+# For ch04 - demonstrating multiple definition errors
+cat > file1.c << 'FIXTURE_EOF'
+int foo = 1;
+FIXTURE_EOF
+
+cat > file2.c << 'FIXTURE_EOF'
+int foo = 2;
+FIXTURE_EOF
+
+# Compile object files
 gcc -c math.c -o math.o
 gcc -c main.c -o main.o
 gcc main.o math.o -o program
 gcc -c simple.c -o simple.o
 gcc simple.c -o simple
+
+# For ch07 - shared library example
+gcc -fPIC -shared math.c -o libmath.so
+
+# For ch06 - static linking examples  
+cat > hello.c << 'FIXTURE_EOF'
+#include <stdio.h>
+int main() { printf("Hello, world!\n"); return 0; }
+FIXTURE_EOF
+gcc hello.c -o hello
+
+# Create symlink for libc.a if it exists (location varies by distro)
+LIBC_PATH=$(find /usr/lib -name 'libc.a' 2>/dev/null | head -1)
+if [ -n "$LIBC_PATH" ]; then
+    ln -sf "$LIBC_PATH" libc.a
+fi
 "#;
 
         let output = Command::new("docker")

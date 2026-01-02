@@ -43,7 +43,7 @@ libmath.so: ELF 64-bit LSB shared object, x86-64, version 1 (SYSV),
 dynamically linked, not stripped
 
 $ readelf -h libmath.so | grep Type
-readelf: Error: 'libmath.so': No such file
+  Type:                              DYN (Shared object file)
 ```
 
 Type `DYN` (not `EXEC`). It has:

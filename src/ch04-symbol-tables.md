@@ -259,14 +259,11 @@ A symbol with global binding should be defined exactly once (across all input fi
 
 ```bash
 $ gcc -c file1.c -o file1.o  # defines 'foo'
-cc1: fatal error: file1.c: No such file or directory
-compilation terminated.
 $ gcc -c file2.c -o file2.o  # also defines 'foo'
-cc1: fatal error: file2.c: No such file or directory
-compilation terminated.
 $ gcc file1.o file2.o -o out
-/usr/bin/ld: cannot find file1.o: No such file or directory
-/usr/bin/ld: cannot find file2.o: No such file or directory
+/usr/bin/ld: file2.o:(.data+0x0): multiple definition of `foo'; file1.o:(.data+0x0): first defined here
+/usr/bin/ld: /lib/aarch64-linux-gnu/crt1.o: in function `__wrap_main':
+(.text+0x38): undefined reference to `main'
 collect2: error: ld returned 1 exit status
 ```
 

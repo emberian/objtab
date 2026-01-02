@@ -1,5 +1,13 @@
 # Static Linking
 
+There's something satisfying about a statically linked binary. One file. No dependencies. Copy it to any machine with the right architecture, and it runs. No "library not found" errors. No version mismatches. No debugging why the production server has a different libc than your laptop.
+
+For decades, this was the only kind of linking. You compiled your code, linked in the libraries you needed, and shipped a self-contained executable. The simplicity was the point.
+
+Static linking fell out of favor as systems grew. When fifty programs all use the same C library, having fifty copies in memory seemed wasteful. Dynamic linking emerged to share code. But static linking never went away—it just became a choice rather than the default. Go statically links everything. Rust can. And when you need a Docker image that "just works," static linking starts looking attractive again.
+
+Let's understand how it works.
+
 Static linking is the simplest form of linking. Take some object files, combine them into one executable, resolve all symbols, apply all relocations. Done.
 
 No runtime dependencies. No version mismatches. No "works on my machine." Just one file that runs.
@@ -364,4 +372,12 @@ The trade-offs are similar: larger bundles but simpler deployment.
 6. **LTO** enables cross-module optimization
 7. **Trade-off**: larger files but simpler deployment
 
-Next, we'll see the alternative: dynamic linking, where the final linking happens at runtime.
+## The Cost of Simplicity
+
+Static linking has elegance, but it has costs. Every program carries its own copy of every library it uses. Ten programs using OpenSSL mean ten copies of OpenSSL in memory. Security vulnerability in zlib? You need to rebuild and redeploy every affected binary.
+
+In the 1980s and 1990s, as systems grew more complex and memory remained expensive, this became untenable. The Unix world developed an alternative: shared libraries that could be loaded once and mapped into every process that needed them. Memory saved. Updates applied once. The dream of modularity realized.
+
+But shared libraries introduced new complexity. Code can't use fixed addresses anymore—a library might load at different locations in different processes. Symbols need to be resolved at runtime, not just link time. New data structures (GOT, PLT) emerged to make this work. New errors appeared ("symbol not found," "version GLIBC_2.17 not found").
+
+In the next chapter, we'll explore dynamic linking—the runtime machinery that makes shared libraries possible. You'll understand why position-independent code matters, how the dynamic linker resolves symbols, and what's really happening when you see `LD_LIBRARY_PATH` in a tutorial. Static linking was the foundation; dynamic linking is how the modern world actually works.

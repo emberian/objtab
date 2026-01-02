@@ -1,5 +1,11 @@
 # Runtime Linking & Loading
 
+Every linking mechanism we've seen so far has a fixed point: something is decided before your code runs. Static linking fixes everything at build time. Dynamic linking fixes library dependencies at program start. But the most interesting programs don't know what they'll need until they're running.
+
+Consider Photoshop loading a filter plugin you just downloaded. Or nginx loading a new authentication module from a config reload. Or the JVM loading classes the first time they're referenced. These systems can't know at build time—or even at startup—which code they'll need. They need to load code *on demand*, look up symbols *by name*, and wire everything together *at runtime*.
+
+This is the ultimate flexibility: your program as a dynamic system that can grow new capabilities while it runs. It's also the ultimate complexity, with new error modes (what if the plugin is malicious?), new performance considerations (what's the cost of late binding?), and new debugging challenges (where did that function come from?).
+
 Dynamic linking happens at program startup. But what if you want to load code *during* execution? Maybe based on configuration, user input, or plugin architecture?
 
 That's runtime linking. Load a library, look up symbols, call functions—all while the program runs.
@@ -462,4 +468,12 @@ ltrace ./program
 6. **WASM uses JavaScript** for runtime module loading
 7. **Cache compiled modules** and symbol lookups for performance
 
-Next, we'll compare ELF and WASM side by side, highlighting their different design choices and trade-offs.
+## Two Worlds
+
+We've now explored object files, symbol tables, relocations, and three flavors of linking—all primarily through the lens of ELF, the format that runs most of the world's servers. But we've been making comparisons to WebAssembly throughout, noting where it does things differently.
+
+It's time to bring those comparisons together. ELF and WASM solve the same fundamental problem—representing compiled code so it can be linked and run—but they make profoundly different design choices. ELF trusts code and optimizes for performance. WASM trusts nothing and optimizes for safety. ELF has flat memory and arbitrary control flow. WASM has sandboxed memory and structured control flow.
+
+Understanding both formats illuminates the design space. You see what's essential to any binary format, what's an artifact of 1990s Unix assumptions, and what's a deliberate trade-off between power and safety.
+
+In the next chapter, we'll put ELF and WASM side by side—same concepts, different implementations. You'll come away understanding not just how each format works, but *why* it works that way.

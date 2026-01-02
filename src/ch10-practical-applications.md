@@ -1,5 +1,13 @@
 # Practical Applications for Web Developers
 
+Here's a confession: everything you've learned in this book is useless.
+
+Not because it's wrong. Because knowledge sitting in your head doesn't fix bugs, shrink binaries, or unblock builds. The value comes when you reach for this knowledge at the right moment—when you recognize "this is a symbol resolution problem" instead of flailing at a mysterious error message.
+
+This chapter is about those moments. We'll work through real scenarios you'll encounter as a web developer dealing with native code. Each section starts with a symptom you'll recognize, explains what's actually happening in terms you now understand, and shows you how to fix it.
+
+Think of this chapter as a translation guide: from error message to root cause to solution, with all the symbol tables and relocations providing the "why."
+
 You've learned about object files, symbols, relocations, and linkers. Now let's apply this knowledge to problems you actually face.
 
 ## Debugging Native Module Failures

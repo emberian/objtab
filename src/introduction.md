@@ -78,6 +78,12 @@ On macOS, ELF tools may need to be installed via Homebrew (`binutils`). For WASM
 
 ## Let's Begin
 
-Turn the page. We're going to start with the most fundamental question: what even *is* a symbol?
+Every journey into the depths of a system starts with a single question. Ours is deceptively simple: what is a symbol?
 
-The answer might surprise you.
+You've seen symbols before, even if you didn't call them that. Every time you write `export function` in JavaScript, you're creating one. Every time webpack reports "module not found," it's complaining about one. Every time a native Node.js addon fails to load with "undefined symbol," you're confronting the consequences of one gone missing.
+
+Symbols are the names we give to things in code—functions, variables, constants—so that separate pieces of a program can find each other. They're the calling cards that code leaves behind, saying "I exist, and here's how to reach me."
+
+In the next chapter, we'll see exactly what symbols look like, how compilers create them, and how linkers use them to stitch separate files into working programs. We'll start with C because it shows the machinery most clearly, but the concepts apply everywhere—including to the JavaScript bundlers you use every day.
+
+Turn the page. The answer to "what is a symbol?" will reshape how you think about code.

@@ -1,5 +1,13 @@
 # Object File Anatomy: ELF Deep Dive
 
+In 1995, the Unix world was fragmented. Different systems used different binary formats: a.out on older systems, COFF on System V, Mach-O on NeXT. Porting software meant wrestling with format differences. Debugging tools had to understand multiple formats. It was a mess.
+
+ELF—the Executable and Linkable Format—was designed to end that fragmentation. It succeeded beyond anyone's expectations. Today, ELF runs on Linux, FreeBSD, OpenBSD, NetBSD, Solaris, PlayStation, Android, and countless embedded systems. When you run a program on a Linux server, you're running an ELF file. When your phone launches an app, ELF is involved. It's one of the most successful binary formats ever designed.
+
+Understanding ELF isn't just historical curiosity. It's practical knowledge. When `npm install` fails with a mysterious native module error, ELF knowledge helps you debug it. When you're optimizing a Docker image, knowing what's in those binaries helps you shrink them. When you're investigating a security vulnerability, ELF structure tells you what's exploitable.
+
+Let's open one up.
+
 ELF stands for **Executable and Linkable Format**. It's the standard binary format on Linux, BSD, Solaris, and many embedded systems. If you've ever run a program on Linux, you've run an ELF file.
 
 But ELF isn't just for executables. The same format is used for:
@@ -475,4 +483,12 @@ readelf -h simple | grep Entry
 4. **The symbol table** lives in `.symtab`; relocations in `.rel*` sections
 5. **Segments define memory mapping**: what's readable, writable, executable
 
-Next, we'll look at how WebAssembly does all this differently—and why those differences matter.
+## A Format Born of Its Time
+
+ELF was designed for a world of desktop workstations and servers—machines with megabytes of RAM, spinning disks, and no security sandbox. It assumes the operating system will protect processes from each other, so the format itself doesn't need to enforce safety. Code can jump anywhere. Pointers can point to anything. The format trusts you.
+
+Twenty years later, the world looked different. Browsers ran code from untrusted websites. Mobile devices ran apps from unknown developers. Edge servers ran code from customers. The old assumptions—that code could be trusted, that the OS provided enough isolation—no longer held.
+
+WebAssembly was designed for this new world. It's a binary format, like ELF, with sections and symbols and relocations. But it makes fundamentally different choices. Memory is sandboxed. Control flow is structured. Types are mandatory. The format doesn't trust you—and that's the point.
+
+In the next chapter, we'll explore WASM's object format. You'll see familiar concepts—sections, imports, exports—implemented in unfamiliar ways. Understanding both formats will show you the design space of binary formats: what's essential, what's historical accident, and what's deliberate trade-off.

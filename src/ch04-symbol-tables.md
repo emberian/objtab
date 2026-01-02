@@ -1,5 +1,11 @@
 # Symbol Tables Demystified
 
+Every programmer has seen a symbol table error. "Undefined reference to `foo`." "Multiple definition of `bar`." "Symbol not found: `baz`." These messages come from the linker, and they're telling you that something went wrong in the symbol table—the data structure at the heart of linking.
+
+But what *is* a symbol table? Not conceptually—we covered that in Chapter 1. What is it *physically*? What bytes are in the file? What does the linker actually read when it resolves your function calls?
+
+This chapter answers those questions. We'll look at the raw structure of symbol table entries, see how names are stored, and understand the flags that control visibility and binding. By the end, you'll be able to read `readelf -s` output like a native speaker, and debug symbol problems by understanding exactly what went wrong.
+
 We've mentioned symbol tables throughout this book. Now let's crack them open and see exactly how they work.
 
 ## The Symbol Table: A Database of Names
@@ -437,4 +443,12 @@ objdump -T file.so | grep symbol_name
 5. **Hash tables** enable fast symbol lookup
 6. **WASM symbol tables** are simpler, type-aware, and live in custom sections
 
-Next, we'll see how relocations use symbol tables to patch code with actual addresses.
+## The Missing Piece
+
+Symbol tables tell us *what* exists and *where* it is. But there's a problem we haven't addressed: how does code actually *use* that information?
+
+When the compiler generates machine code for `call add`, it doesn't know where `add` will be. That address is determined later, by the linker. So the compiler emits a placeholder—often just zeros—and leaves a note saying "hey, linker, please fill this in with the address of `add`."
+
+That note is called a *relocation*. Relocations are the instructions that tell the linker how to patch object files into working executables. They're the glue that binds symbol tables to actual code.
+
+In the next chapter, we'll explore relocations in detail. You'll see the different types (PC-relative, absolute, GOT-relative), understand the calculations involved, and learn why position-independent code needs different relocations than fixed-address code. If symbol tables are the directory, relocations are the wiring diagram.

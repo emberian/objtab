@@ -1,5 +1,15 @@
 # Dynamic Linking & Shared Libraries
 
+The year is 1988. Your Sun workstation has 4MB of RAM—a generous amount. You're running a window manager, a text editor, a compiler, and a mail client. Each program uses the C library. With static linking, that's four copies of libc in memory. On a 4MB machine, that's painful.
+
+Sun's engineers had an idea: what if programs could *share* library code? Load libc once, map it into every process that needs it. One copy in physical memory, appearing in many virtual address spaces. Suddenly your 4MB machine feels roomier.
+
+This was the birth of shared libraries. The idea spread to System V, then to Linux, then to everywhere. Today, virtually every program on your system uses them. That's why `ls` is 130KB instead of 2MB—it doesn't include libc, just a reference to it.
+
+But sharing introduces complexity. If libc can load at different addresses in different processes, how does code find the functions it needs? If libraries can be updated independently of programs, how do you handle version mismatches? If the library isn't loaded until runtime, when do symbol errors appear?
+
+Dynamic linking solves these problems—elegantly, if you understand it; mysteriously, if you don't. Let's understand it.
+
 Static linking has a problem: duplication. If 50 programs use libc, you have 50 copies of libc in memory. That's wasteful.
 
 Dynamic linking solves this. Shared libraries are loaded once and mapped into every process that needs them. Memory saved. Updates applied once. The world rejoices.
@@ -419,4 +429,12 @@ This is invaluable for debugging "symbol not found" errors.
 6. **SONAME versioning** enables backward-compatible updates
 7. **WASM has import-based linking** at instantiation time
 
-Next, we'll explore runtime linking—`dlopen()` and friends—for even more dynamic behavior.
+## Beyond Startup
+
+Dynamic linking happens when your program starts. The dynamic linker loads libraries, resolves symbols, and by the time `main()` runs, everything is wired up. For most programs, this is enough.
+
+But what if you don't know which code you'll need until the program is running? A text editor loading syntax highlighters based on file type. A server loading authentication modules from a config file. A game engine loading mods that didn't exist when the game shipped.
+
+This is *runtime* linking—the ability to load code while the program runs, look up symbols by name, and call functions that weren't known at compile time. It's the foundation of plugin architectures, hot reloading, and adaptive systems.
+
+In the next chapter, we'll explore the `dlopen` API and its WASM equivalents. You'll learn how to build plugin systems, wrap library functions for debugging, and understand the security implications of loading arbitrary code. If dynamic linking is linking at program start, runtime linking is linking whenever you want.

@@ -1,5 +1,15 @@
 # ELF vs WASM: A Detailed Comparison
 
+Two binary formats. Twenty years apart. Both encode compiled code, symbols, and linking metadata. But they feel completely different to work with.
+
+ELF grew from Unix culture: minimal constraints, maximum flexibility, trust the programmer. It's a format that lets you shoot yourself in the foot—and assumes you know how to avoid it. You can jump to arbitrary addresses. You can read and write any memory. You can override any symbol. The power is yours; the responsibility is yours.
+
+WASM grew from web culture: assume hostile code, verify everything, sandbox by default. It's a format that won't let you misbehave—not because it catches you, but because misbehavior is inexpressible. You can't jump to arbitrary addresses because addresses don't exist. You can't escape your memory sandbox because the format doesn't have escape hatches. The constraints are the feature.
+
+Neither is "better." They're optimized for different threat models. ELF assumes the OS provides security; WASM assumes nothing does. ELF optimizes for native performance; WASM optimizes for portable safety.
+
+Let's see exactly how these philosophies manifest in their designs.
+
 ELF was designed in 1995 for Unix systems. WebAssembly was designed in 2015 for web browsers. Different eras, different constraints, different designs.
 
 Yet both solve the same fundamental problem: representing compiled code and the metadata needed to link and run it.
@@ -360,4 +370,12 @@ And increasingly, **WASM on the server** (Cloudflare Workers, Fastly Compute, et
 6. **Structured control flow** makes WASM safer but sometimes awkward
 7. **Both formats are evolving** toward each other's strengths
 
-Next, let's see how all this knowledge applies to real-world web development scenarios.
+## From Theory to Practice
+
+Nine chapters of formats, data structures, and design philosophy. You now understand object files at a level most developers never reach. But knowledge without application is just trivia.
+
+The final chapter is about using this knowledge. What do you actually *do* when npm install fails with a native module error? How do you shrink a 2MB WASM bundle to something reasonable? When your Node.js app has mysterious latency spikes, how do you check if it's library loading?
+
+We'll walk through real scenarios: debugging symbol errors, optimizing binary sizes, building native addons, and deploying WASM in production. The theory you've learned becomes the toolkit you'll use.
+
+Let's make this practical.

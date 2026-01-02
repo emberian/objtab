@@ -249,4 +249,12 @@ Try making `add` static in `math.c`. Watch the linker error. Try removing the `m
 4. **Binding** controls visibility: global, local, or weak
 5. **This is not unlike ES6 modules**—the concepts transfer
 
-Now that we know what symbols are, let's look at where they live: the object file itself.
+## Looking Ahead
+
+We've established that symbols are names, and that they live in object files. But we've been treating object files as black boxes—we know `nm` can list their symbols, but we haven't looked inside.
+
+What *is* an object file, really? It's not just a bag of symbols. It's a structured container with headers, sections, and metadata. The symbol table is just one part of a larger architecture designed in the 1990s and still running on billions of devices today.
+
+That architecture is called ELF—the Executable and Linkable Format. Understanding ELF means understanding how Linux, Android, and most of the world's servers actually load and run code. It also provides the conceptual foundation for understanding WebAssembly, which made different design choices for different reasons.
+
+In the next chapter, we'll crack open an ELF file and examine its anatomy. You'll see where symbols live, how code is organized into sections, and why there are two different "views" of the same file. Bring your hex editor—we're going deep.

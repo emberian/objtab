@@ -1,5 +1,11 @@
 # Relocations: The Glue That Binds
 
+Imagine you're assembling IKEA furniture, but the instruction manual has blank spaces where measurements should be. "Insert screw at position ____." "Align panel ____ centimeters from edge." The actual numbers will be filled in later, once you measure your specific room.
+
+That's what object files are like. The compiler generates code with blank spaces—placeholders where addresses should go. The linker fills in those blanks later, once it knows where everything will actually live in memory.
+
+Those blank spaces, and the instructions for filling them, are called *relocations*. They're arguably the most important concept in linking, because they're what makes separate compilation possible. Without relocations, every piece of code would need to know the final address of every function and variable at compile time. With relocations, code can reference things by name and trust that the addresses will be filled in later.
+
 When the compiler generates code, it doesn't know the final addresses of functions and data. It can't—the final layout depends on:
 - What other object files get linked
 - Library load addresses (unknown until runtime for shared libs)
@@ -604,4 +610,12 @@ LD_DEBUG=reloc ./executable
 5. **WASM relocations** are simpler—indices instead of addresses
 6. **-fPIC** is essential for shared libraries
 
-Now let's see how static linking puts all these pieces together.
+## Pieces on the Board
+
+We now have all the pieces: object files containing code and data, symbol tables mapping names to locations, and relocations describing how to patch everything together. The stage is set.
+
+Part III is about linking—the process that takes those pieces and assembles them into something you can run. We'll explore three variations of increasing complexity: static linking (simplest), dynamic linking (most common), and runtime linking (most powerful).
+
+Static linking is the straightforward case. You have object files. You want an executable. The linker reads them all, resolves symbols, applies relocations, and writes out one self-contained binary. No runtime dependencies. No version conflicts. Just a file that runs.
+
+In the next chapter, we'll walk through static linking step by step. You'll see exactly how the linker decides where to put each section, how it resolves symbols across multiple files, and how dead code elimination keeps your binaries lean. If you've ever wondered why link order matters, or why your binary is bigger than you expected, this chapter has answers.

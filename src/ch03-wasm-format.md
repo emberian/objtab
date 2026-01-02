@@ -1,5 +1,11 @@
 # WebAssembly Object Format
 
+If ELF is the grizzled veteran—battle-tested, flexible, trusting—WebAssembly is the paranoid newcomer, designed by people who'd seen what happens when you trust code too much.
+
+The web taught us hard lessons. JavaScript engines spent years hardening against malicious scripts. Browser sandboxes grew ever more complex. Even then, exploits slipped through. When the browser vendors sat down to design a binary format for the web, they asked: what if we built safety into the format itself? What if untrusted code couldn't misbehave, not because we caught it, but because the format made misbehavior impossible to express?
+
+The result is WebAssembly: a binary format that's simultaneously lower-level than JavaScript (it compiles to native code) and safer (memory is sandboxed, control flow is structured, types are checked). It's a format where the things you *can't* do matter as much as the things you can.
+
 WebAssembly wasn't designed to replace ELF. It was designed for the web. But somewhere along the way, it grew up and became a real compilation target—complete with its own object file format, linking conventions, and toolchain.
 
 If you've compiled C or Rust to WASM, you've produced WASM object files. Let's understand what's inside them.
@@ -404,4 +410,12 @@ No more undefined symbols. The linker resolved `add` from `math.o`.
 4. **Object files use custom sections** for linking metadata and relocations
 5. **WASM's sandboxed model** means no raw pointers or arbitrary memory access
 
-Next, we'll dive deep into symbol tables—the registry that makes all this resolution possible.
+## The Foundation Is Set
+
+We've now seen two binary formats: ELF, the veteran of native computing, and WASM, the sandboxed newcomer. Both have sections. Both have something like symbols. Both need to connect code that references things to code that defines things.
+
+But we've been hand-waving about the details. When we say "symbol table," what's actually in it? When we say a symbol is "undefined," where is that recorded and how? When the linker "resolves" a symbol, what data structures is it manipulating?
+
+Part II of this book digs into those data structures. We'll start with symbol tables—the registries that make linking possible. You'll see the exact bytes that encode a symbol's name, type, binding, and location. You'll understand why C++ symbols look like `_ZN4math3addEii` and how to decode them. You'll learn why ELF needs *two* symbol tables and what happens to each when you strip a binary.
+
+This is where we transition from "what does it look like" to "how does it actually work."
